@@ -15,7 +15,7 @@ from aiogram.types import (
 )
 from aiogram.fsm.storage.memory import MemoryStorage
 
-BOT_TOKEN = "8870183083:AAFGPIe5aVHNvwNTJt51G04JRZcTKD23n0M"
+BOT_TOKEN = "8870183083:AAEs7V4wV0tfdvcWLedeQtFk_49wMayMc9I"
 CHANNEL_ID = -1004311434285          # ID вашого закритого каналу
 MONO_TOKEN = "u4rfSa4RXC6e0i1Sb7kFlcxp_wG_3WMcHwWDuj4jtEoQ" # З api.monobank.ua
 ACCOUNT_ID = "0"                      # "0" — основна гривнева картка
