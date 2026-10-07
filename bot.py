@@ -15,32 +15,22 @@ from aiogram.types import (
 )
 from aiogram.fsm.storage.memory import MemoryStorage
 
-# ================= КОНФІГУРАЦІЯ =================
-# Отримайте токен у @BotFather
-BOT_TOKEN = "ВАШ_BOT_TOKEN"
-
-# ID закритого каналу (починається з -100, бот обов'язково має бути адміном каналу)
-CHANNEL_ID = -1001234567890
-
-# Персональний токен з https://api.monobank.ua/
-MONO_TOKEN = "ВАШ_MONOBANK_API_TOKEN"
-
-# "0" — головна гривнева картка (або конкретний accountId)
-ACCOUNT_ID = "0"
-
-# Реквізити для клієнта
-CARD_NUMBER = "4441 1111 2222 3333"
-RECIPIENT_NAME = "Ваше ПІБ"
-BASE_PRICE = 247
-# ================================================
-
-logging.basicConfig(level=logging.INFO)
+BOT_TOKEN = "8870183083:AAFGPIe5aVHNvwNTJt51G04JRZcTKD23n0M"
+CHANNEL_ID = -1004311434285          # ID вашого закритого каналу
+MONO_TOKEN = "u4rfSa4RXC6e0i1Sb7kFlcxp_wG_3WMcHwWDuj4jtEoQ" # З api.monobank.ua
+ACCOUNT_ID = "0"                      # "0" — основна гривнева картка
+CARD_NUMBER = "4441 1111 4227 5779"  # Номер вашої картки
+RECIPIENT_NAME = "Талько П.В."
+BASE_PRICE = 1
 
 bot = Bot(token=BOT_TOKEN)
-dp = Dispatcher(storage=MemoryStorage())
+dp = Dispatcher()
 
-# Тимчасовий реєстр платежів
+# Тимчасове сховище призначених сум (у продакшені краще SQLite / Redis)
+# Формат: {user_id: {"amount_cents": 24715, "timestamp": 1710000000}}
 pending_payments = {}
+
+# Лічильник унікальних копійок (від 1 до 99)
 cents_counter = 1
 
 
