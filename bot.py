@@ -15,7 +15,7 @@ from aiogram.types import (
 )
 from aiogram.fsm.storage.memory import MemoryStorage
 
-BOT_TOKEN = "8870183083:AAEs7V4wV0tfdvcWLedeQtFk_49wMayMc9I"
+BOT_TOKEN = "8870183083:AAEf4nWxxRZZmEikNp0DM5ndluk1sOmjRXY"
 ADMIN_ID = 465382376          # Ваш числовий Telegram ID (дізнатися в @userinfobot)
 CHANNEL_ID = -1004311434285          # ID вашого закритого каналу
 
