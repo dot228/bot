@@ -1,5 +1,4 @@
 import os
-import asyncio
 import logging
 from aiohttp import web
 
@@ -9,22 +8,32 @@ from aiogram.types import (
     Message,
     CallbackQuery,
     InlineKeyboardMarkup,
-    InlineKeyboardButton
+    InlineKeyboardButton,
+    Update
 )
-from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 
 BOT_TOKEN = "8870183083:AAEf4nWxxRZZmEikNp0DM5ndluk1sOmjRXY"
-ADMIN_ID = 465382376          # Ваш числовий Telegram ID (дізнатися в @userinfobot)
-CHANNEL_ID = -1004311434285          # ID вашого закритого каналу
+ADMIN_ID = 6750612015          # Ваш числовий Telegram ID (дізнатися в @userinfobot)
+CHANNEL_ID = -1004464809521          # ID вашого закритого каналу
 
-CARD_NUMBER = "4441 1111 4227 5779"  # Номер вашої картки
-RECIPIENT_NAME = "Талько П.В."
-PRICE = "247 грн"
+CARD_NUMBER = "4441 1110 3348 5701"  # Номер вашої картки
+RECIPIENT_NAME = "Супруненко А. О."
+PRICE = "288 грн"
+
+# Публічний домен Render (значення без https://, наприклад: bot-3-lrz5.onrender.com)
+RENDER_EXTERNAL_HOSTNAME = os.environ.get("RENDER_EXTERNAL_HOSTNAME", "")
+
+WEBHOOK_PATH = f"/webhook/{BOT_TOKEN}"
+WEBHOOK_URL = f"https://{RENDER_EXTERNAL_HOSTNAME}{WEBHOOK_PATH}"
+# ================================================
 
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=BOT_TOKEN)
-dp = Dispatcher(storage=MemoryStorage())
+dp = Dispatcher()
 
+
+# --- ОБРОБНИКИ КОМАНД І КНОПОК ---
 
 @dp.message(CommandStart())
 async def start_handler(message: Message):
@@ -40,7 +49,7 @@ async def start_handler(message: Message):
         f"перекажіть <b>{PRICE}</b> за реквізитами:\n\n"
         f"💳 <code>{CARD_NUMBER}</code> <i>(натисніть для копіювання)</i>\n"
         f"👤 Отримувач: <b>{RECIPIENT_NAME}</b>\n\n"
-        f"Після здійснення переказу просто натисніть кнопку нижче 👇"
+        f"Після здійснення оплати натисніть кнопку нижче 👇"
     )
     await message.answer(text, parse_mode="HTML", reply_markup=keyboard)
 
@@ -50,17 +59,16 @@ async def client_paid_handler(callback: CallbackQuery):
     user = callback.from_user
     username = f"@{user.username}" if user.username else "без юзернейма"
 
-    # 1. Прибираємо кнопку в повідомленні користувача та інформуємо про обробку
+    # Сповіщення користувачу
     await callback.message.edit_reply_markup(reply_markup=None)
     await callback.message.answer(
-        "⏳ <b>Дякуємо! Заявку надіслано адміністратору.</b>\n\n"
-        "Очікуємо підтвердження з банку. Одразу після перевірки ваше персональне посилання "
-        "надійде в цей чат автоматично.",
+        "⏳ <b>Дякуємо! Повідомлення надіслано на перевірку.</b>\n\n"
+        "Очікуємо підтвердження оплати. Персональне посилання надійде сюди автоматично.",
         parse_mode="HTML"
     )
     await callback.answer()
 
-    # 2. Відправляємо адміну сповіщення з кнопками керування
+    # Сповіщення адміністратору з кнопками
     admin_keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -73,9 +81,8 @@ async def client_paid_handler(callback: CallbackQuery):
     admin_text = (
         f"🔔 <b>Нове повідомлення про оплату!</b>\n\n"
         f"👤 Покупець: <b>{user.full_name}</b> ({username})\n"
-        f"🆔 Telegram ID: <code>{user.id}</code>\n"
-        f"💰 Очікувана сума: <b>{PRICE}</b>\n\n"
-        f"<i>Перевірте виписку у своєму банку та оберіть дію:</i>"
+        f"🆔 ID: <code>{user.id}</code>\n"
+        f"💰 Очікувана сума: <b>{PRICE}</b>"
     )
 
     await bot.send_message(
@@ -91,29 +98,26 @@ async def approve_handler(callback: CallbackQuery):
     user_id = int(callback.data.split("_")[1])
 
     try:
-        # Створюємо строго одноразове посилання (діє лише для 1 входу)
+        # Одноразовий інвайт-лінк (ліміт: 1 вхід)
         invite = await bot.create_chat_invite_link(
             chat_id=CHANNEL_ID,
             member_limit=1,
             name=f"User_{user_id}"
         )
 
-        # Надсилаємо посилання покупцю
         await bot.send_message(
             chat_id=user_id,
             text=(
-                f"🎉 <b>Оплату успішно підтверджено!</b>\n\n"
-                f"Ваше персональне посилання для входу в закритий канал із матеріалами:\n"
+                f"🎉 <b>Оплату підтверджено!</b>\n\n"
+                f"Ваше одноразове посилання для входу в закритий канал:\n"
                 f"👉 {invite.invite_link}\n\n"
-                f"<i>Зверніть увагу: посилання діє лише для одного акаунта.</i>"
+                f"<i>Посилання активне лише для одного входу.</i>"
             ),
             parse_mode="HTML"
         )
 
-        # Оновлюємо картку адміна, щоб випадково не натиснути двічі
         await callback.message.edit_text(
-            f"✅ <b>Доступ надано!</b>\n"
-            f"Користувач ID <code>{user_id}</code> отримав одноразовий інвайт-лінк.",
+            f"✅ <b>Доступ надано!</b> Користувачу <code>{user_id}</code> надіслано посилання.",
             parse_mode="HTML"
         )
         await callback.answer("Підтверджено!")
@@ -128,20 +132,17 @@ async def reject_handler(callback: CallbackQuery):
     user_id = int(callback.data.split("_")[1])
 
     try:
-        # Повідомляємо клієнта про відхилення
         await bot.send_message(
             chat_id=user_id,
             text=(
-                "❌ <b>Оплату не знайдено у банківській виписці.</b>\n\n"
-                "Будь ласка, перевірте факт списання коштів або зверніться до підтримки, "
-                "якщо виникла затримка з боку вашого банку."
+                "❌ <b>Оплату не знайдено.</b>\n\n"
+                "Перевірте факт списання у банку або зверніться до підтримки."
             ),
             parse_mode="HTML"
         )
 
         await callback.message.edit_text(
-            f"❌ <b>Оплату відхилено.</b>\n"
-            f"Користувача ID <code>{user_id}</code> сповіщено.",
+            f"❌ Оплату користувача <code>{user_id}</code> відхилено.",
             parse_mode="HTML"
         )
         await callback.answer("Відхилено!")
@@ -151,26 +152,52 @@ async def reject_handler(callback: CallbackQuery):
         await callback.answer(f"Помилка: {e}", show_alert=True)
 
 
-# ================= ВЕБ-СЕРВЕР ДЛЯ ВИТОКІВ RENDER =================
-async def handle_ping(request):
-    return web.Response(text="Bot is running!")
+# --- НАЛАШТУВАННЯ ВЕБ-СЕРВЕРА ТА WEBHOOK ---
+
+async def health_check(request):
+    """Маршрут для Render та UptimeRobot, щоб підтримувати сервер активним."""
+    return web.Response(text="OK", status=200)
 
 
-async def main():
-    port = int(os.environ.get("PORT", 8080))
+async def on_startup(app: web.Application):
+    # Встановлюємо вебхук у Telegram
+    if RENDER_EXTERNAL_HOSTNAME:
+        logging.info(f"Реєструємо Webhook: {WEBHOOK_URL}")
+        await bot.set_webhook(
+            url=WEBHOOK_URL,
+            drop_pending_updates=True,
+            allowed_updates=["message", "callback_query"]
+        )
+    else:
+        logging.warning("RENDER_EXTERNAL_HOSTNAME не знайдено, перевірте змінні середовища.")
 
-    # Створюємо фіктивний вебсервер, щоб Render бачив відкритий порт
+
+async def on_shutdown(app: web.Application):
+    logging.info("Зупиняємо сесію бота...")
+    await bot.session.close()
+
+
+def main():
     app = web.Application()
-    app.router.add_get("/", handle_ping)
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", port)
-    await site.start()
-    logging.info(f"Health-check port started on {port}")
 
-    await bot.delete_webhook(drop_pending_updates=True)
-    await dp.start_polling(bot)
+    # Health-check ендпоінт
+    app.router.add_get("/", health_check)
+
+    # Обробник вебхуків Telegram
+    webhook_handler = SimpleRequestHandler(
+        dispatcher=dp,
+        bot=bot
+    )
+    webhook_handler.register(app, path=WEBHOOK_PATH)
+
+    app.on_startup.append(on_startup)
+    app.on_shutdown.append(on_shutdown)
+
+    setup_application(app, dp, bot=bot)
+
+    port = int(os.environ.get("PORT", 8080))
+    web.run_app(app, host="0.0.0.0", port=port)
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
